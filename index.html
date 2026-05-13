@@ -9,9 +9,7 @@
   --border2: rgba(255,255,255,0.1);
   --text: #e2e8f0;
   --muted: #64748b;
-  --accent: #6366f1;
   --green: #22c55e;
-  --blue: #38bdf8;
 }
 body { background: var(--bg); margin: 0; }
 select { background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;outline:none; }
@@ -22,13 +20,11 @@ select option { background:var(--surface2);color:var(--text); }
 .stat-label { font-size:11px;color:var(--muted);letter-spacing:0.06em;margin-bottom:6px; }
 .stat-val { font-size:28px;font-weight:500;letter-spacing:-0.01em; }
 .tbl-wrap { background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden; }
-table { width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed; }
-thead th { padding:9px 10px;font-size:11px;font-weight:500;letter-spacing:0.06em;color:var(--muted);border-bottom:1px solid var(--border2);background:var(--surface);white-space:nowrap;text-align:center; }
-thead th.col-date { text-align:left; }
-thead th.col-name { text-align:left; }
-tbody td { padding:9px 10px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;font-size:14px;font-variant-numeric:tabular-nums; }
-tbody td.col-date { text-align:left;font-size:13px; }
-tbody td.col-name { text-align:left; }
+table { width:100%;border-collapse:collapse;font-size:13px;table-layout:auto; }
+thead th { padding:9px 8px;font-size:11px;font-weight:500;letter-spacing:0.05em;color:var(--muted);border-bottom:1px solid var(--border2);background:var(--surface);white-space:nowrap;text-align:center; }
+thead th.left { text-align:left; }
+tbody td { padding:9px 8px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;font-size:14px;font-variant-numeric:tabular-nums; }
+tbody td.left { text-align:left; }
 tbody tr:hover td { background:rgba(255,255,255,0.025); }
 tbody tr:last-child td { border-bottom:none; }
 </style>
@@ -48,14 +44,12 @@ tbody tr:last-child td { border-bottom:none; }
   <div id="statsRow"></div>
 
   <div class="tbl-wrap">
-    <div style="overflow-x:auto;background:var(--surface);">
-      <table id="dataTable">
-        <thead id="tableHead"></thead>
-        <tbody id="tableBody">
-          <tr><td colspan="10" style="padding:48px;text-align:center;color:var(--muted);border:none;">資料載入中...</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <table id="dataTable">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody">
+        <tr><td colspan="10" style="padding:48px;text-align:center;color:var(--muted);border:none;">資料載入中...</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
@@ -72,32 +66,18 @@ function parseNum(v) {
 function setStats(data) {
   const row = document.getElementById('statsRow');
   if(!data.length){ row.innerHTML=''; return; }
-
   const members = new Set(data.map(r => r[nameKey])).size;
-
-  // 找「今日成交」「今日邀約」欄
   const allKeys = Object.keys(data[0]);
   const dealKey = allKeys.find(k => k.includes('成交'));
   const apptKey = allKeys.find(k => k.includes('邀約'));
-
-  const sumKey = (key) => key ? data.reduce((a,r) => {
-    const n = parseNum(r[key]); return n!==null ? a+n : a;
-  }, 0) : null;
-
-  const dealSum = sumKey(dealKey);
-  const apptSum = sumKey(apptKey);
-
+  const sumKey = k => k ? data.reduce((a,r) => { const n=parseNum(r[k]); return n!==null?a+n:a; }, 0) : null;
   const cards = [
-    { label: '業務人數', value: members, color: '#818cf8' },
-    { label: apptKey || '今日邀約', value: apptSum !== null ? apptSum.toLocaleString() : '—', color: '#38bdf8' },
-    { label: dealKey || '今日成交', value: dealSum !== null ? dealSum.toLocaleString() : '—', color: '#22c55e' },
+    { label:'業務人數', value:members, color:'#818cf8' },
+    { label:apptKey||'今日邀約', value:sumKey(apptKey)!==null?sumKey(apptKey).toLocaleString():'—', color:'#38bdf8' },
+    { label:dealKey||'今日成交', value:sumKey(dealKey)!==null?sumKey(dealKey).toLocaleString():'—', color:'#22c55e' },
   ];
-
   row.innerHTML = cards.map(c =>
-    `<div class="stat-card">
-      <div class="stat-label">${c.label}</div>
-      <div class="stat-val" style="color:${c.color};">${c.value}</div>
-    </div>`
+    `<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-val" style="color:${c.color};">${c.value}</div></div>`
   ).join('');
 }
 
@@ -108,10 +88,9 @@ async function fetchData() {
     if(raw.length > 0){
       dateKey = Object.keys(raw[0]).find(k => k.includes('時間')) || '紀錄時間';
       nameKey = Object.keys(raw[0]).find(k => k.includes('姓名')) || '業務姓名';
-      allData = raw.filter(r => String(r['業務ID']||'') !== '-1' && !String(r[nameKey]||'').includes('總和'));
+      allData = raw.filter(r => String(r['業務ID']||'')!=='-1' && !String(r[nameKey]||'').includes('總和'));
     }
-    initFilters();
-    filterData();
+    initFilters(); filterData();
   } catch(e) {
     document.getElementById('tableBody').innerHTML =
       '<tr><td colspan="10" style="padding:40px;text-align:center;color:#f87171;border:none;">資料載入失敗</td></tr>';
@@ -121,10 +100,10 @@ async function fetchData() {
 function initFilters() {
   const df = document.getElementById('dateFilter');
   const nf = document.getElementById('nameFilter');
-  const dates = [...new Set(allData.map(r => String(r[dateKey]||'').split(' ')[0]))].filter(Boolean).sort().reverse();
-  dates.forEach(d => { const o=document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); });
-  const names = [...new Set(allData.map(r => r[nameKey]))].filter(Boolean);
-  names.forEach(n => { const o=document.createElement('option'); o.value=o.textContent=n; nf.appendChild(o); });
+  [...new Set(allData.map(r => String(r[dateKey]||'').split(' ')[0]))].filter(Boolean).sort().reverse()
+    .forEach(d => { const o=document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); });
+  [...new Set(allData.map(r => r[nameKey]))].filter(Boolean)
+    .forEach(n => { const o=document.createElement('option'); o.value=o.textContent=n; nf.appendChild(o); });
   df.addEventListener('change', filterData);
   nf.addEventListener('change', filterData);
 }
@@ -132,18 +111,19 @@ function initFilters() {
 function filterData() {
   const sd = document.getElementById('dateFilter').value;
   const sn = document.getElementById('nameFilter').value;
-  const filtered = allData.filter(r => {
-    const d = String(r[dateKey]||'');
-    const n = String(r[nameKey]||'');
-    return (sd==='all'||d.startsWith(sd)) && (sn==='all'||n===sn);
-  });
-  setStats(filtered);
-  renderTable(filtered);
+  const filtered = allData.filter(r =>
+    (sd==='all'||String(r[dateKey]||'').startsWith(sd)) &&
+    (sn==='all'||String(r[nameKey]||'')===sn)
+  );
+  setStats(filtered); renderTable(filtered);
 }
 
 function renderTable(data) {
   const thead = document.getElementById('tableHead');
   const tbody = document.getElementById('tableBody');
+  // remove old colgroup if any
+  const old = document.getElementById('dataTable').querySelector('colgroup');
+  if(old) old.remove();
   thead.innerHTML=''; tbody.innerHTML='';
 
   if(!data.length){
@@ -153,38 +133,18 @@ function renderTable(data) {
 
   const headers = Object.keys(data[0]).filter(h => !h.includes('ID'));
 
-  // Determine which cols are numeric (for alignment)
   const numericCols = new Set();
   data.slice(0,5).forEach(row => {
     headers.forEach(h => {
-      if(!h.includes('時間') && !h.includes('姓名')) {
-        const n = parseNum(row[h]);
-        if(n !== null) numericCols.add(h);
-      }
+      if(!h.includes('時間')&&!h.includes('姓名') && parseNum(row[h])!==null) numericCols.add(h);
     });
   });
-
-  // Set column widths
-  const colWidths = headers.map(h => {
-    if(h.includes('時間')) return '90px';
-    if(h.includes('姓名')) return '110px';
-    return '90px';
-  });
-
-  // colgroup
-  const cg = document.createElement('colgroup');
-  colWidths.forEach(w => {
-    const col = document.createElement('col');
-    col.style.width = w;
-    cg.appendChild(col);
-  });
-  document.getElementById('dataTable').prepend(cg);
 
   const tr = document.createElement('tr');
   headers.forEach(h => {
     const th = document.createElement('th');
     th.textContent = h.includes('時間') ? '日期' : h;
-    if(h.includes('時間')||h.includes('姓名')) th.className = 'col-'+( h.includes('時間')?'date':'name');
+    if(h.includes('時間')||h.includes('姓名')) th.className='left';
     tr.appendChild(th);
   });
   thead.appendChild(tr);
@@ -196,10 +156,9 @@ function renderTable(data) {
       let v = row[h] ?? '';
       if(h.includes('時間')) v = String(v).split(' ')[0];
       const n = parseNum(v);
-      const isNum = n !== null && numericCols.has(h);
+      const isNum = n!==null && numericCols.has(h);
       td.textContent = isNum ? n.toLocaleString() : v;
-      if(h.includes('時間')) td.className='col-date';
-      else if(h.includes('姓名')) td.className='col-name';
+      if(h.includes('時間')||h.includes('姓名')) td.className='left';
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
