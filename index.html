@@ -7,7 +7,7 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f6fa; padding: 20px; color: #2f3640; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .controls { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; gap: 15px; }
-        select { padding: 8px 12px; border: 1px solid #dcdde1; border-radius: 5px; font-size: 14px; outline: none; }
+        select { padding: 8px 12px; border: 1px solid #dcdde1; border-radius: 5px; font-size: 14px; outline: none; cursor: pointer; }
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; }
         th { background-color: #2c3e50; color: white; font-weight: 500; }
@@ -18,14 +18,10 @@
 <body>
 
     <div class="header">
-        <h2>📊 DEMO 戰情室儀表板</h2>
+        <h2> Etalking Dashboard </h2>
         <div class="controls">
-            <select id="dateFilter">
-                <option value="all">📅 所有日期</option>
-            </select>
-            <select id="nameFilter">
-                <option value="all">👤 所有人</option>
-            </select>
+            <select id="dateFilter"></select>
+            <select id="nameFilter"></select>
         </div>
     </div>
 
@@ -39,20 +35,33 @@
     </table>
 
     <script>
-        // 替換成你的 GAS 網頁應用程式網址
         const API_URL = 'https://script.google.com/macros/s/AKfycbxsHfeyyVnzL6smHORnyjWkmUrVZJ_74CVyYzWQE1yfCGkHNxhgWmvouvjk-7VmVwVq/exec'; 
         let allData = [];
+        let dateKey = '';
+        let nameKey = '';
 
         async function fetchData() {
             try {
                 const response = await fetch(API_URL);
-                allData = await response.json();
+                let rawData = await response.json();
+                
+                if(rawData.length > 0) {
+                    dateKey = Object.keys(rawData[0]).find(k => k.includes('時間')) || '紀錄時間';
+                    nameKey = Object.keys(rawData[0]).find(k => k.includes('姓名')) || '業務姓名';
+                    
+                    // 過濾掉全公司總和或 ID 為 -1 的列
+                    allData = rawData.filter(item => {
+                        let idVal = String(item['業務ID'] || '');
+                        let nameVal = String(item[nameKey] || '');
+                        return idVal !== '-1' && !nameVal.includes('總和');
+                    });
+                }
                 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dataTable').style.display = 'table';
                 
                 initFilters();
-                renderTable(allData);
+                filterData();
             } catch (error) {
                 document.getElementById('loading').innerText = '❌ 資料載入失敗';
                 console.error(error);
@@ -63,8 +72,12 @@
             const dateFilter = document.getElementById('dateFilter');
             const nameFilter = document.getElementById('nameFilter');
             
-            // 萃取不重複的日期 (根據你的截圖，擷取空白前的日期部分)
-            const dates = [...new Set(allData.map(item => item['紀錄時間'].split(' ')[0]))].filter(Boolean);
+            dateFilter.innerHTML = '<option value="all">📅 所有日期</option>';
+            nameFilter.innerHTML = '<option value="all">👤 所有人</option>';
+
+            const dates = [...new Set(allData.map(item => String(item[dateKey] || '').split(' ')[0]))]
+                          .filter(Boolean)
+                          .sort().reverse();
             dates.forEach(date => {
                 let opt = document.createElement('option');
                 opt.value = date;
@@ -72,18 +85,14 @@
                 dateFilter.appendChild(opt);
             });
 
-            // 萃取不重複的姓名
-            const names = [...new Set(allData.map(item => item['業務姓名']))].filter(Boolean);
+            const names = [...new Set(allData.map(item => item[nameKey]))].filter(Boolean);
             names.forEach(name => {
-                if(name !== '【全公司總和】') { // 可以選擇把總和排除在人員選單外
-                    let opt = document.createElement('option');
-                    opt.value = name;
-                    opt.innerText = name;
-                    nameFilter.appendChild(opt);
-                }
+                let opt = document.createElement('option');
+                opt.value = name;
+                opt.innerText = name;
+                nameFilter.appendChild(opt);
             });
 
-            // 綁定過濾事件
             dateFilter.addEventListener('change', filterData);
             nameFilter.addEventListener('change', filterData);
         }
@@ -93,8 +102,11 @@
             const selectedName = document.getElementById('nameFilter').value;
 
             const filtered = allData.filter(item => {
-                const matchDate = selectedDate === 'all' || item['紀錄時間'].startsWith(selectedDate);
-                const matchName = selectedName === 'all' || item['業務姓名'] === selectedName;
+                const itemDate = String(item[dateKey] || '');
+                const itemName = String(item[nameKey] || '');
+                
+                const matchDate = selectedDate === 'all' || itemDate.startsWith(selectedDate);
+                const matchName = selectedName === 'all' || itemName === selectedName;
                 return matchDate && matchName;
             });
 
@@ -108,31 +120,38 @@
             tbody.innerHTML = '';
 
             if(data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">沒有符合的資料</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px;">沒有符合的資料</td></tr>';
                 return;
             }
 
-            // 產生表頭
-            const headers = Object.keys(data[0]);
+            // 【修改點 1】擷取表頭：直接把名稱包含「ID」的欄位過濾掉
+            const headers = Object.keys(data[0]).filter(h => !h.includes('ID'));
+            
             headers.forEach(h => {
                 let th = document.createElement('th');
-                th.innerText = h;
+                // 把表頭名稱順便優化一下，時間改叫日期
+                th.innerText = h.includes('時間') ? '紀錄日期' : h; 
                 thead.appendChild(th);
             });
 
-            // 產生資料列
             data.forEach(row => {
                 let tr = document.createElement('tr');
                 headers.forEach(h => {
                     let td = document.createElement('td');
-                    td.innerText = row[h] || '';
+                    let cellValue = row[h] || '';
+                    
+                    // 【修改點 2】如果這欄是紀錄時間，就用空白切開，只拿前面的日期
+                    if (h.includes('時間')) {
+                        cellValue = String(cellValue).split(' ')[0];
+                    }
+                    
+                    td.innerText = cellValue;
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
             });
         }
 
-        // 啟動抓取
         fetchData();
     </script>
 </body>
