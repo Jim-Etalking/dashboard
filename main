@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>DEMO 戰情室儀表板</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f6fa; padding: 20px; color: #2f3640; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .controls { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; gap: 15px; }
+        select { padding: 8px 12px; border: 1px solid #dcdde1; border-radius: 5px; font-size: 14px; outline: none; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; }
+        th { background-color: #2c3e50; color: white; font-weight: 500; }
+        tr:hover { background-color: #f1f2f6; }
+        #loading { text-align: center; padding: 50px; font-size: 18px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>📊 DEMO 戰情室儀表板</h2>
+        <div class="controls">
+            <select id="dateFilter">
+                <option value="all">📅 所有日期</option>
+            </select>
+            <select id="nameFilter">
+                <option value="all">👤 所有人</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="loading">資料載入中，請稍候...</div>
+
+    <table id="dataTable" style="display: none;">
+        <thead>
+            <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <script>
+        // 替換成你的 GAS 網頁應用程式網址
+        const API_URL = 'YOUR_GAS_API_URL'; 
+        let allData = [];
+
+        async function fetchData() {
+            try {
+                const response = await fetch(API_URL);
+                allData = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dataTable').style.display = 'table';
+                
+                initFilters();
+                renderTable(allData);
+            } catch (error) {
+                document.getElementById('loading').innerText = '❌ 資料載入失敗';
+                console.error(error);
+            }
+        }
+
+        function initFilters() {
+            const dateFilter = document.getElementById('dateFilter');
+            const nameFilter = document.getElementById('nameFilter');
+            
+            // 萃取不重複的日期 (根據你的截圖，擷取空白前的日期部分)
+            const dates = [...new Set(allData.map(item => item['紀錄時間'].split(' ')[0]))].filter(Boolean);
+            dates.forEach(date => {
+                let opt = document.createElement('option');
+                opt.value = date;
+                opt.innerText = date;
+                dateFilter.appendChild(opt);
+            });
+
+            // 萃取不重複的姓名
+            const names = [...new Set(allData.map(item => item['業務姓名']))].filter(Boolean);
+            names.forEach(name => {
+                if(name !== '【全公司總和】') { // 可以選擇把總和排除在人員選單外
+                    let opt = document.createElement('option');
+                    opt.value = name;
+                    opt.innerText = name;
+                    nameFilter.appendChild(opt);
+                }
+            });
+
+            // 綁定過濾事件
+            dateFilter.addEventListener('change', filterData);
+            nameFilter.addEventListener('change', filterData);
+        }
+
+        function filterData() {
+            const selectedDate = document.getElementById('dateFilter').value;
+            const selectedName = document.getElementById('nameFilter').value;
+
+            const filtered = allData.filter(item => {
+                const matchDate = selectedDate === 'all' || item['紀錄時間'].startsWith(selectedDate);
+                const matchName = selectedName === 'all' || item['業務姓名'] === selectedName;
+                return matchDate && matchName;
+            });
+
+            renderTable(filtered);
+        }
+
+        function renderTable(data) {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">沒有符合的資料</td></tr>';
+                return;
+            }
+
+            // 產生表頭
+            const headers = Object.keys(data[0]);
+            headers.forEach(h => {
+                let th = document.createElement('th');
+                th.innerText = h;
+                thead.appendChild(th);
+            });
+
+            // 產生資料列
+            data.forEach(row => {
+                let tr = document.createElement('tr');
+                headers.forEach(h => {
+                    let td = document.createElement('td');
+                    td.innerText = row[h] || '';
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 啟動抓取
+        fetchData();
+    </script>
+</body>
+</html>
