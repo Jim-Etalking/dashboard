@@ -1,91 +1,97 @@
 
 <style>
   :root {
-    --dash-bg: #0d1117;
-    --dash-surface: #161b22;
-    --dash-surface2: #1c2230;
-    --dash-border: rgba(255,255,255,0.07);
-    --dash-border2: rgba(255,255,255,0.12);
-    --dash-text: #e6edf3;
-    --dash-muted: #7d8590;
-    --dash-accent: #388bfd;
-    --dash-accent2: #1f6feb;
-    --dash-green: #3fb950;
-    --dash-header-bg: #161b22;
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2333;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.1);
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #6366f1;
+    --green: #22c55e;
   }
 </style>
 
-<div style="background:var(--dash-bg);min-height:500px;padding:20px;font-family:'Segoe UI',system-ui,sans-serif;color:var(--dash-text);">
+<div style="background:var(--bg);min-height:500px;padding:24px;font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);">
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div style="width:8px;height:8px;background:var(--dash-green);border-radius:50%;box-shadow:0 0 6px var(--dash-green);"></div>
-      <span style="font-size:18px;font-weight:500;letter-spacing:0.02em;color:var(--dash-text);">戰情室儀表板</span>
-      <span style="font-size:11px;background:rgba(56,139,253,0.12);color:var(--dash-accent);border:1px solid rgba(56,139,253,0.3);padding:2px 8px;border-radius:20px;letter-spacing:0.05em;">LIVE</span>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:7px;height:7px;background:var(--green);border-radius:50%;"></div>
+      <span style="font-size:16px;font-weight:500;letter-spacing:0.01em;">Etalking Dashboard</span>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;">
-      <select id="dateFilter" style="background:var(--dash-surface2);color:var(--dash-text);border:1px solid var(--dash-border2);border-radius:6px;padding:7px 12px;font-size:13px;cursor:pointer;outline:none;">
+    <div style="display:flex;gap:8px;">
+      <select id="dateFilter" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;outline:none;">
         <option value="all">所有日期</option>
       </select>
-      <select id="nameFilter" style="background:var(--dash-surface2);color:var(--dash-text);border:1px solid var(--dash-border2);border-radius:6px;padding:7px 12px;font-size:13px;cursor:pointer;outline:none;">
+      <select id="nameFilter" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;outline:none;">
         <option value="all">所有業務</option>
       </select>
     </div>
   </div>
 
-  <div id="statsRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;"></div>
+  <div id="statsRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;"></div>
 
-  <div style="background:var(--dash-surface);border:1px solid var(--dash-border);border-radius:8px;overflow:hidden;">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--dash-border);display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:13px;color:var(--dash-muted);">資料記錄</span>
-      <span id="recordCount" style="font-size:13px;color:var(--dash-muted);">—</span>
-    </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
     <div style="overflow-x:auto;">
       <table id="dataTable" style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead id="tableHead"></thead>
         <tbody id="tableBody">
-          <tr><td colspan="10" style="padding:40px;text-align:center;color:var(--dash-muted);">
-            <div id="loadMsg" style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-              <span style="font-size:20px;">↻</span>
-              <span>資料載入中...</span>
-            </div>
-          </td></tr>
+          <tr><td colspan="10" style="padding:48px;text-align:center;color:var(--muted);">資料載入中...</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-
 </div>
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbxsHfeyyVnzL6smHORnyjWkmUrVZJ_74CVyYzWQE1yfCGkHNxhgWmvouvjk-7VmVwVq/exec';
-let allData = [];
-let dateKey = '';
-let nameKey = '';
+let allData = [], dateKey = '', nameKey = '';
 
-const statStyle = `background:var(--dash-surface2);border:1px solid var(--dash-border);border-radius:6px;padding:12px 16px;`;
+function parseNum(v) {
+  if(v === null || v === undefined || v === '') return null;
+  const n = parseFloat(String(v).replace(/,/g,''));
+  return isNaN(n) ? null : n;
+}
+
+function sumCol(data, key) {
+  return data.reduce((a, r) => {
+    const n = parseNum(r[key]);
+    return n !== null ? a + n : a;
+  }, 0);
+}
 
 function setStats(data) {
   const row = document.getElementById('statsRow');
-  const total = data.length;
-  const names = new Set(data.map(r => r[nameKey])).size;
-  const dates = new Set(data.map(r => String(r[dateKey]||'').split(' ')[0])).size;
-  const numKeys = Object.keys(data[0]||{}).filter(k => !k.includes('ID') && !k.includes('時間') && !k.includes('姓名'));
-  let sum = 0, sumKey = '';
-  for(let k of numKeys){
-    const vals = data.map(r => parseFloat(r[k])||0);
-    const s = vals.reduce((a,b)=>a+b,0);
-    if(s > sum){ sum = s; sumKey = k; }
-  }
-  row.innerHTML = [
-    ['筆資料', total, '#388bfd'],
-    ['業務人數', names, '#3fb950'],
-    ['日期數', dates, '#d29922'],
-    [sumKey||'合計', sum ? sum.toLocaleString() : '—', '#bc8cff']
-  ].map(([label,val,color]) =>
-    `<div style="${statStyle}">
-      <div style="font-size:11px;color:var(--dash-muted);letter-spacing:0.05em;margin-bottom:6px;">${label}</div>
-      <div style="font-size:22px;font-weight:500;color:${color};">${val}</div>
+  if(!data.length){ row.innerHTML=''; return; }
+
+  const keys = Object.keys(data[0]).filter(k => !k.includes('ID') && !k.includes('時間') && !k.includes('姓名'));
+  
+  // Find numeric columns that have meaningful sums
+  const numCols = keys.filter(k => {
+    const vals = data.map(r => parseNum(r[k])).filter(v => v !== null);
+    return vals.length > 0 && vals.some(v => v > 0);
+  });
+
+  // Pick top 2 numeric cols by sum, plus count of unique members
+  const colSums = numCols.map(k => ({ k, s: sumCol(data, k) })).sort((a,b) => b.s - a.s);
+  const top2 = colSums.slice(0, 2);
+
+  const members = new Set(data.map(r => r[nameKey])).size;
+
+  const cards = [
+    { label: '業務人數', value: members, color: '#818cf8' },
+    ...top2.map((c,i) => ({
+      label: c.k,
+      value: c.s.toLocaleString(),
+      color: i===0 ? '#6366f1' : '#38bdf8'
+    }))
+  ];
+
+  row.innerHTML = cards.map(c =>
+    `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:0.06em;margin-bottom:8px;">${c.label}</div>
+      <div style="font-size:26px;font-weight:500;color:${c.color};letter-spacing:-0.01em;">${c.value}</div>
     </div>`
   ).join('');
 }
@@ -97,16 +103,13 @@ async function fetchData() {
     if(raw.length > 0){
       dateKey = Object.keys(raw[0]).find(k => k.includes('時間')) || '紀錄時間';
       nameKey = Object.keys(raw[0]).find(k => k.includes('姓名')) || '業務姓名';
-      allData = raw.filter(item => {
-        let id = String(item['業務ID']||'');
-        let nm = String(item[nameKey]||'');
-        return id !== '-1' && !nm.includes('總和');
-      });
+      allData = raw.filter(r => String(r['業務ID']||'') !== '-1' && !String(r[nameKey]||'').includes('總和'));
     }
     initFilters();
     filterData();
   } catch(e) {
-    document.getElementById('loadMsg').innerHTML = '<span style="color:#f85149;">❌ 資料載入失敗，請確認 API 連線</span>';
+    document.getElementById('tableBody').innerHTML =
+      '<tr><td colspan="10" style="padding:40px;text-align:center;color:#f87171;">資料載入失敗</td></tr>';
   }
 }
 
@@ -114,9 +117,9 @@ function initFilters() {
   const df = document.getElementById('dateFilter');
   const nf = document.getElementById('nameFilter');
   const dates = [...new Set(allData.map(r => String(r[dateKey]||'').split(' ')[0]))].filter(Boolean).sort().reverse();
-  dates.forEach(d => { let o = document.createElement('option'); o.value = o.textContent = d; df.appendChild(o); });
+  dates.forEach(d => { const o=document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); });
   const names = [...new Set(allData.map(r => r[nameKey]))].filter(Boolean);
-  names.forEach(n => { let o = document.createElement('option'); o.value = o.textContent = n; nf.appendChild(o); });
+  names.forEach(n => { const o=document.createElement('option'); o.value=o.textContent=n; nf.appendChild(o); });
   df.addEventListener('change', filterData);
   nf.addEventListener('change', filterData);
 }
@@ -136,12 +139,10 @@ function filterData() {
 function renderTable(data) {
   const thead = document.getElementById('tableHead');
   const tbody = document.getElementById('tableBody');
-  const rc = document.getElementById('recordCount');
-  thead.innerHTML = ''; tbody.innerHTML = '';
-  rc.textContent = data.length + ' 筆';
+  thead.innerHTML=''; tbody.innerHTML='';
 
   if(!data.length){
-    tbody.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;color:var(--dash-muted);">沒有符合的資料</td></tr>';
+    tbody.innerHTML='<tr><td colspan="10" style="padding:32px;text-align:center;color:var(--muted);">沒有符合的資料</td></tr>';
     return;
   }
 
@@ -150,27 +151,37 @@ function renderTable(data) {
   headers.forEach(h => {
     const th = document.createElement('th');
     th.textContent = h.includes('時間') ? '日期' : h;
-    th.style.cssText = 'padding:10px 14px;text-align:left;font-size:11px;font-weight:500;letter-spacing:0.08em;color:var(--dash-muted);border-bottom:1px solid var(--dash-border2);white-space:nowrap;text-transform:uppercase;';
+    th.style.cssText = 'padding:10px 16px;text-align:left;font-size:11px;font-weight:500;letter-spacing:0.07em;color:var(--muted);border-bottom:1px solid var(--border2);white-space:nowrap;background:var(--surface);';
     tr.appendChild(th);
   });
   thead.appendChild(tr);
 
-  data.forEach((row, i) => {
+  data.forEach(row => {
     const tr = document.createElement('tr');
-    tr.style.cssText = `border-bottom:1px solid var(--dash-border);transition:background 0.1s;`;
-    tr.onmouseover = () => tr.style.background = 'rgba(255,255,255,0.03)';
-    tr.onmouseout = () => tr.style.background = '';
+    tr.style.cssText = 'border-bottom:1px solid var(--border);transition:background 0.1s;';
+    tr.onmouseover = () => tr.style.background='rgba(255,255,255,0.025)';
+    tr.onmouseout = () => tr.style.background='';
     headers.forEach(h => {
       const td = document.createElement('td');
-      let v = row[h] || '';
+      let v = row[h] ?? '';
       if(h.includes('時間')) v = String(v).split(' ')[0];
-      td.textContent = v;
-      const isNum = !isNaN(parseFloat(v)) && !h.includes('時間') && !h.includes('姓名');
-      td.style.cssText = `padding:10px 14px;font-size:13px;color:${isNum?'#e6edf3':'var(--dash-text)'};white-space:nowrap;${isNum?'font-variant-numeric:tabular-nums;':''}`;
+      const n = parseNum(v);
+      const isNum = n !== null && !h.includes('時間') && !h.includes('姓名');
+      td.textContent = isNum ? n.toLocaleString() : v;
+      td.style.cssText = `padding:10px 16px;font-size:13px;color:var(--text);white-space:nowrap;${isNum?'font-variant-numeric:tabular-nums;text-align:right;':''}`;
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
+
+  // right-align numeric headers
+  const ths = thead.querySelectorAll('th');
+  const firstDataRow = tbody.querySelector('tr');
+  if(firstDataRow){
+    firstDataRow.querySelectorAll('td').forEach((td,i) => {
+      if(td.style.textAlign==='right') ths[i].style.textAlign='right';
+    });
+  }
 }
 
 fetchData();
