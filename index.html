@@ -1,43 +1,58 @@
 
 <style>
-  :root {
-    --bg: #0f1117;
-    --surface: #181c27;
-    --surface2: #1e2333;
-    --border: rgba(255,255,255,0.06);
-    --border2: rgba(255,255,255,0.1);
-    --text: #e2e8f0;
-    --muted: #64748b;
-    --accent: #6366f1;
-    --green: #22c55e;
-  }
+* { box-sizing: border-box; }
+:root {
+  --bg: #0f1117;
+  --surface: #161b27;
+  --surface2: #1e2333;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.1);
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --accent: #6366f1;
+  --green: #22c55e;
+  --blue: #38bdf8;
+}
+body { background: var(--bg); margin: 0; }
+select { background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;outline:none; }
+select option { background:var(--surface2);color:var(--text); }
+#root { background:var(--bg);min-height:600px;padding:20px;font-family:'Segoe UI',system-ui,sans-serif;color:var(--text); }
+#statsRow { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px; }
+.stat-card { background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px; }
+.stat-label { font-size:11px;color:var(--muted);letter-spacing:0.06em;margin-bottom:6px; }
+.stat-val { font-size:28px;font-weight:500;letter-spacing:-0.01em; }
+.tbl-wrap { background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden; }
+table { width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed; }
+thead th { padding:9px 10px;font-size:11px;font-weight:500;letter-spacing:0.06em;color:var(--muted);border-bottom:1px solid var(--border2);background:var(--surface);white-space:nowrap;text-align:center; }
+thead th.col-date { text-align:left; }
+thead th.col-name { text-align:left; }
+tbody td { padding:9px 10px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;font-size:14px;font-variant-numeric:tabular-nums; }
+tbody td.col-date { text-align:left;font-size:13px; }
+tbody td.col-name { text-align:left; }
+tbody tr:hover td { background:rgba(255,255,255,0.025); }
+tbody tr:last-child td { border-bottom:none; }
 </style>
 
-<div style="background:var(--bg);min-height:500px;padding:24px;font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);">
-
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+<div id="root">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
     <div style="display:flex;align-items:center;gap:10px;">
       <div style="width:7px;height:7px;background:var(--green);border-radius:50%;"></div>
-      <span style="font-size:16px;font-weight:500;letter-spacing:0.01em;">Etalking Dashboard</span>
+      <span style="font-size:16px;font-weight:500;">戰情室儀表板</span>
     </div>
     <div style="display:flex;gap:8px;">
-      <select id="dateFilter" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;outline:none;">
-        <option value="all">所有日期</option>
-      </select>
-      <select id="nameFilter" style="background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;outline:none;">
-        <option value="all">所有業務</option>
-      </select>
+      <select id="dateFilter"><option value="all">所有日期</option></select>
+      <select id="nameFilter"><option value="all">所有業務</option></select>
     </div>
   </div>
 
-  <div id="statsRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;"></div>
+  <div id="statsRow"></div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-    <div style="overflow-x:auto;">
-      <table id="dataTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+  <div class="tbl-wrap">
+    <div style="overflow-x:auto;background:var(--surface);">
+      <table id="dataTable">
         <thead id="tableHead"></thead>
         <tbody id="tableBody">
-          <tr><td colspan="10" style="padding:48px;text-align:center;color:var(--muted);">資料載入中...</td></tr>
+          <tr><td colspan="10" style="padding:48px;text-align:center;color:var(--muted);border:none;">資料載入中...</td></tr>
         </tbody>
       </table>
     </div>
@@ -49,49 +64,39 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxsHfeyyVnzL6smHORnyjWk
 let allData = [], dateKey = '', nameKey = '';
 
 function parseNum(v) {
-  if(v === null || v === undefined || v === '') return null;
+  if(v===null||v===undefined||v==='') return null;
   const n = parseFloat(String(v).replace(/,/g,''));
   return isNaN(n) ? null : n;
-}
-
-function sumCol(data, key) {
-  return data.reduce((a, r) => {
-    const n = parseNum(r[key]);
-    return n !== null ? a + n : a;
-  }, 0);
 }
 
 function setStats(data) {
   const row = document.getElementById('statsRow');
   if(!data.length){ row.innerHTML=''; return; }
 
-  const keys = Object.keys(data[0]).filter(k => !k.includes('ID') && !k.includes('時間') && !k.includes('姓名'));
-  
-  // Find numeric columns that have meaningful sums
-  const numCols = keys.filter(k => {
-    const vals = data.map(r => parseNum(r[k])).filter(v => v !== null);
-    return vals.length > 0 && vals.some(v => v > 0);
-  });
-
-  // Pick top 2 numeric cols by sum, plus count of unique members
-  const colSums = numCols.map(k => ({ k, s: sumCol(data, k) })).sort((a,b) => b.s - a.s);
-  const top2 = colSums.slice(0, 2);
-
   const members = new Set(data.map(r => r[nameKey])).size;
+
+  // 找「今日成交」「今日邀約」欄
+  const allKeys = Object.keys(data[0]);
+  const dealKey = allKeys.find(k => k.includes('成交'));
+  const apptKey = allKeys.find(k => k.includes('邀約'));
+
+  const sumKey = (key) => key ? data.reduce((a,r) => {
+    const n = parseNum(r[key]); return n!==null ? a+n : a;
+  }, 0) : null;
+
+  const dealSum = sumKey(dealKey);
+  const apptSum = sumKey(apptKey);
 
   const cards = [
     { label: '業務人數', value: members, color: '#818cf8' },
-    ...top2.map((c,i) => ({
-      label: c.k,
-      value: c.s.toLocaleString(),
-      color: i===0 ? '#6366f1' : '#38bdf8'
-    }))
+    { label: apptKey || '今日邀約', value: apptSum !== null ? apptSum.toLocaleString() : '—', color: '#38bdf8' },
+    { label: dealKey || '今日成交', value: dealSum !== null ? dealSum.toLocaleString() : '—', color: '#22c55e' },
   ];
 
   row.innerHTML = cards.map(c =>
-    `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;">
-      <div style="font-size:11px;color:var(--muted);letter-spacing:0.06em;margin-bottom:8px;">${c.label}</div>
-      <div style="font-size:26px;font-weight:500;color:${c.color};letter-spacing:-0.01em;">${c.value}</div>
+    `<div class="stat-card">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-val" style="color:${c.color};">${c.value}</div>
     </div>`
   ).join('');
 }
@@ -109,7 +114,7 @@ async function fetchData() {
     filterData();
   } catch(e) {
     document.getElementById('tableBody').innerHTML =
-      '<tr><td colspan="10" style="padding:40px;text-align:center;color:#f87171;">資料載入失敗</td></tr>';
+      '<tr><td colspan="10" style="padding:40px;text-align:center;color:#f87171;border:none;">資料載入失敗</td></tr>';
   }
 }
 
@@ -142,46 +147,63 @@ function renderTable(data) {
   thead.innerHTML=''; tbody.innerHTML='';
 
   if(!data.length){
-    tbody.innerHTML='<tr><td colspan="10" style="padding:32px;text-align:center;color:var(--muted);">沒有符合的資料</td></tr>';
+    tbody.innerHTML='<tr><td colspan="10" style="padding:32px;text-align:center;color:var(--muted);border:none;">沒有符合的資料</td></tr>';
     return;
   }
 
   const headers = Object.keys(data[0]).filter(h => !h.includes('ID'));
+
+  // Determine which cols are numeric (for alignment)
+  const numericCols = new Set();
+  data.slice(0,5).forEach(row => {
+    headers.forEach(h => {
+      if(!h.includes('時間') && !h.includes('姓名')) {
+        const n = parseNum(row[h]);
+        if(n !== null) numericCols.add(h);
+      }
+    });
+  });
+
+  // Set column widths
+  const colWidths = headers.map(h => {
+    if(h.includes('時間')) return '90px';
+    if(h.includes('姓名')) return '110px';
+    return '90px';
+  });
+
+  // colgroup
+  const cg = document.createElement('colgroup');
+  colWidths.forEach(w => {
+    const col = document.createElement('col');
+    col.style.width = w;
+    cg.appendChild(col);
+  });
+  document.getElementById('dataTable').prepend(cg);
+
   const tr = document.createElement('tr');
   headers.forEach(h => {
     const th = document.createElement('th');
     th.textContent = h.includes('時間') ? '日期' : h;
-    th.style.cssText = 'padding:10px 16px;text-align:left;font-size:11px;font-weight:500;letter-spacing:0.07em;color:var(--muted);border-bottom:1px solid var(--border2);white-space:nowrap;background:var(--surface);';
+    if(h.includes('時間')||h.includes('姓名')) th.className = 'col-'+( h.includes('時間')?'date':'name');
     tr.appendChild(th);
   });
   thead.appendChild(tr);
 
   data.forEach(row => {
     const tr = document.createElement('tr');
-    tr.style.cssText = 'border-bottom:1px solid var(--border);transition:background 0.1s;';
-    tr.onmouseover = () => tr.style.background='rgba(255,255,255,0.025)';
-    tr.onmouseout = () => tr.style.background='';
     headers.forEach(h => {
       const td = document.createElement('td');
       let v = row[h] ?? '';
       if(h.includes('時間')) v = String(v).split(' ')[0];
       const n = parseNum(v);
-      const isNum = n !== null && !h.includes('時間') && !h.includes('姓名');
+      const isNum = n !== null && numericCols.has(h);
       td.textContent = isNum ? n.toLocaleString() : v;
-      td.style.cssText = `padding:10px 16px;font-size:13px;color:var(--text);white-space:nowrap;${isNum?'font-variant-numeric:tabular-nums;text-align:right;':''}`;
+      if(h.includes('時間')) td.className='col-date';
+      else if(h.includes('姓名')) td.className='col-name';
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
-
-  // right-align numeric headers
-  const ths = thead.querySelectorAll('th');
-  const firstDataRow = tbody.querySelector('tr');
-  if(firstDataRow){
-    firstDataRow.querySelectorAll('td').forEach((td,i) => {
-      if(td.style.textAlign==='right') ths[i].style.textAlign='right';
-    });
-  }
 }
 
 fetchData();
