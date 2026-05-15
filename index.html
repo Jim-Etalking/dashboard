@@ -1,4 +1,3 @@
-
 <style>
 * { box-sizing: border-box; }
 :root {
@@ -90,7 +89,8 @@ async function fetchData() {
       nameKey = Object.keys(raw[0]).find(k => k.includes('姓名')) || '業務姓名';
       allData = raw.filter(r => String(r['業務ID']||'')!=='-1' && !String(r[nameKey]||'').includes('總和'));
     }
-    initFilters(); filterData();
+    initFilters(); 
+    filterData();
   } catch(e) {
     document.getElementById('tableBody').innerHTML =
       '<tr><td colspan="10" style="padding:40px;text-align:center;color:#f87171;border:none;">資料載入失敗</td></tr>';
@@ -100,12 +100,36 @@ async function fetchData() {
 function initFilters() {
   const df = document.getElementById('dateFilter');
   const nf = document.getElementById('nameFilter');
-  [...new Set(allData.map(r => String(r[dateKey]||'').split(' ')[0]))].filter(Boolean).sort().reverse()
-    .forEach(d => { const o=document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); });
+  
+  const dates = [...new Set(allData.map(r => String(r[dateKey]||'').split(' ')[0]))].filter(Boolean).sort().reverse();
+  
+  dates.forEach(d => { 
+      const o=document.createElement('option'); 
+      o.value=o.textContent=d; 
+      df.appendChild(o); 
+  });
+  
   [...new Set(allData.map(r => r[nameKey]))].filter(Boolean)
-    .forEach(n => { const o=document.createElement('option'); o.value=o.textContent=n; nf.appendChild(o); });
+    .forEach(n => { 
+        const o=document.createElement('option'); 
+        o.value=o.textContent=n; 
+        nf.appendChild(o); 
+    });
+    
   df.addEventListener('change', filterData);
   nf.addEventListener('change', filterData);
+
+  // --- 新增：自動選擇今日或最新日期的邏輯 ---
+  const d = new Date();
+  const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  
+  if (dates.includes(todayStr)) {
+      // 如果今天有資料，下拉選單自動切換到今天
+      df.value = todayStr;
+  } else if (dates.length > 0) {
+      // 如果今天還沒資料，就選最新的一天（陣列的第一個）
+      df.value = dates[0];
+  }
 }
 
 function filterData() {
@@ -121,7 +145,6 @@ function filterData() {
 function renderTable(data) {
   const thead = document.getElementById('tableHead');
   const tbody = document.getElementById('tableBody');
-  // remove old colgroup if any
   const old = document.getElementById('dataTable').querySelector('colgroup');
   if(old) old.remove();
   thead.innerHTML=''; tbody.innerHTML='';
