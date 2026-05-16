@@ -107,8 +107,14 @@ function initFilters() {
   df.innerHTML = '<option value="all">所有日期</option>';
   nf.innerHTML = '<option value="all">所有業務</option>';
 
-  // 自動抓取獨一無二的分部名稱
-  const branches = [...new Set(allData.map(r => r['_branch']))].filter(Boolean).sort();
+  // 💡 自訂排序：指定台北第一、台中第二，其餘（如未分類）放最後
+  const branchOrder = ['台北', '台中'];
+  const branches = [...new Set(allData.map(r => r['_branch']))].filter(Boolean).sort((a, b) => {
+      const idxA = branchOrder.indexOf(a) === -1 ? 99 : branchOrder.indexOf(a);
+      const idxB = branchOrder.indexOf(b) === -1 ? 99 : branchOrder.indexOf(b);
+      return idxA - idxB;
+  });
+  
   branches.forEach(b => { 
       const o=document.createElement('option'); o.value=o.textContent=b; bf.appendChild(o); 
   });
@@ -163,7 +169,6 @@ function renderTable(data) {
     return;
   }
 
-  // 自動隱藏 ID 欄位，同時也把後端傳來的 _branch 標籤隱藏起來不顯示在表格裡
   const headers = Object.keys(data[0]).filter(h => !h.includes('ID') && h !== '_branch');
 
   const numericCols = new Set();
