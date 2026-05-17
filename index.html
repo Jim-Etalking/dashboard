@@ -24,7 +24,9 @@ thead th { padding:9px 8px;font-size:11px;font-weight:500;letter-spacing:0.05em;
 thead th.left { text-align:left; }
 tbody td { padding:9px 8px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;font-size:14px;font-variant-numeric:tabular-nums; }
 tbody td.left { text-align:left; }
-tbody tr:hover td { background:rgba(255,255,255,0.025); }
+tbody tr:nth-child(even) td { background: rgba(255,255,255,0.03); }
+tbody tr:nth-child(odd) td { background: transparent; }
+tbody tr:hover td { background: rgba(255,255,255,0.06) !important; }
 tbody tr:last-child td { border-bottom:none; }
 </style>
 
@@ -102,46 +104,42 @@ function initFilters() {
   const bf = document.getElementById('branchFilter');
   const df = document.getElementById('dateFilter');
   const nf = document.getElementById('nameFilter');
-  
+
   bf.innerHTML = '<option value="all">所有分部</option>';
   df.innerHTML = '<option value="all">所有日期</option>';
   nf.innerHTML = '<option value="all">所有業務</option>';
 
-  // 💡 自訂排序：指定台北第一、台中第二，其餘（如未分類）放最後
   const branchOrder = ['台北', '台中'];
   const branches = [...new Set(allData.map(r => r['_branch']))].filter(Boolean).sort((a, b) => {
-      const idxA = branchOrder.indexOf(a) === -1 ? 99 : branchOrder.indexOf(a);
-      const idxB = branchOrder.indexOf(b) === -1 ? 99 : branchOrder.indexOf(b);
-      return idxA - idxB;
+    const idxA = branchOrder.indexOf(a) === -1 ? 99 : branchOrder.indexOf(a);
+    const idxB = branchOrder.indexOf(b) === -1 ? 99 : branchOrder.indexOf(b);
+    return idxA - idxB;
   });
-  
-  branches.forEach(b => { 
-      const o=document.createElement('option'); o.value=o.textContent=b; bf.appendChild(o); 
-  });
+  branches.forEach(b => { const o=document.createElement('option'); o.value=o.textContent=b; bf.appendChild(o); });
 
   const dates = [...new Set(allData.map(r => String(r[dateKey]||'').split(' ')[0]))].filter(Boolean).sort().reverse();
-  dates.forEach(d => { 
-      const o=document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); 
-  });
-  
-  const names = [...new Set(allData.map(r => r[nameKey]))].filter(Boolean).sort();
-  names.forEach(n => { 
-      const o=document.createElement('option'); o.value=o.textContent=n; nf.appendChild(o); 
-  });
-    
-  bf.addEventListener('change', filterData);
+  dates.forEach(d => { const o=document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); });
+
+  updateNameFilter('all');
+
+  bf.addEventListener('change', () => { updateNameFilter(bf.value); filterData(); });
   df.addEventListener('change', filterData);
   nf.addEventListener('change', filterData);
 
-  // 自動選擇今日或最新日期的邏輯
   const d = new Date();
-  const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  
-  if (dates.includes(todayStr)) {
-      df.value = todayStr;
-  } else if (dates.length > 0) {
-      df.value = dates[0];
-  }
+  const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if (dates.includes(todayStr)) df.value = todayStr;
+  else if (dates.length > 0) df.value = dates[0];
+}
+
+function updateNameFilter(branch) {
+  const nf = document.getElementById('nameFilter');
+  const currentVal = nf.value;
+  nf.innerHTML = '<option value="all">所有業務</option>';
+  const source = branch === 'all' ? allData : allData.filter(r => r['_branch'] === branch);
+  const names = [...new Set(source.map(r => r[nameKey]))].filter(Boolean).sort();
+  names.forEach(n => { const o=document.createElement('option'); o.value=o.textContent=n; nf.appendChild(o); });
+  if (names.includes(currentVal)) nf.value = currentVal;
 }
 
 function filterData() {
